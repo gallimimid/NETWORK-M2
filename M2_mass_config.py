@@ -375,47 +375,48 @@ async def upgrade_card(args):
         results = await asyncio.gather(*coroutes)
         
     for result in results:
-        print(result['response'])
-        if result['response'] != 'No response':
-            if result['response'].status_code != 200:
-                print(result['response'])
-        else:
-            print(f'No response from {result["ip"]}')
+        print(result['ip'], result['response'])
+        # if result['response'] != 'No response':
+            # if result['response'].status_code != 200:
+                # print(result['ip'], result['response'])
+        # else:
+            # print(f'No response from {result["ip"]}')
 
         
 def push_upgrades(ip, args):
 
     try:
         # Authenticate
-        print('Authenticating with NMC')
+        print(f'Authenticating with {ip}')
         url = f'https://{ip}/rest/mbdetnrs/1.0/oauth2/token'
         auth_json = {'username':'admin',
                      'password':args.password,
                      'grant_type':'password',
                      'scope':'GUIAccess'}
-        response = requests.post(url, verify=False, json=auth_json, timeout=10)
-        if response.status_code != 200:
-            return None
-        else:
-            access_token = response.json()['access_token']
-            print(f'Authentication successful, token: {access_token}')
-        headers = {'Authorization':  'Bearer ' + access_token}
-        print('Loading firmware file')
-        files = {'upgradeFile': open(args.upgrade_path, 'rb')}
-        
-        url = f'https://{ip}/rest/mbdetnrs/1.0/managers/1/actions/upgrade'
-        upgrade_response = requests.post(url, 
-                                        headers=headers, 
-                                        files=files, 
-                                        verify=False, 
-                                        timeout=180)
-        
+        response = requests.post(url, verify=False, json=auth_json, timeout=60)
+        try:
+            if response.status_code == 200:
+                access_token = response.json()['access_token']
+                print(f'{ip} Authentication successful, token: {access_token}')
+            else:
+                return {'ip': ip, 'response': 'No response'}
+            headers = {'Authorization':  'Bearer ' + access_token}
+            print(f'{ip} Loading firmware file')
+            files = {'upgradeFile': open(args.upgrade_path, 'rb')}
+            
+            url = f'https://{ip}/rest/mbdetnrs/1.0/managers/1/actions/upgrade'
+            upgrade_response = requests.post(url, 
+                                            headers=headers, 
+                                            files=files, 
+                                            verify=False, 
+                                            timeout=180)
+        except:
+            return {'ip': ip, 'response': 'No response'}
 
         return {'ip': ip, 'response': upgrade_response} # 
     except requests.exceptions.RequestException as e:
         print(e)
         return {'ip': ip, 'response': 'No response'}
-
         
 async def sanitize_cards(args):
     interface = ipaddress.ip_interface(args.network)
