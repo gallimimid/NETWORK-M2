@@ -105,7 +105,12 @@ def get_configs(ip, args):
         
 async def export_configs(args):
     # get all configurations from network cards
-    interface = ipaddress.ip_interface(args.network)
+    if args.ip_file:
+        ip_file = open(args.ip_file, 'r')
+        ip_addresses = [line.strip() for line in ip_file]
+    else:
+        interface = ipaddress.ip_interface(args.network)
+        ip_addresses = interface.network
     with concurrent.futures.ThreadPoolExecutor(max_workers=250) as executor:
         loop = asyncio.get_running_loop()
         coroutes = [
@@ -115,7 +120,7 @@ async def export_configs(args):
                 ip,
                 args
                 ) 
-            for ip in interface.network
+            for ip in ip_addresses
         ]
         configs = await asyncio.gather(*coroutes)
         
@@ -153,6 +158,9 @@ async def export_configs(args):
                     setting = series.iloc[0]
                     fc = f'{feature}.{column}'
                     if type(setting) is list: # test if setting is a list
+                        if len(setting) > 0:
+                            if setting[0] == None:
+                                setting = []
                         fdf = json_normalize(setting)
                         # prepend feature.column to each column
                         fdf = fdf.rename(columns=lambda x: f'features.{fc}.{x}')
@@ -359,7 +367,12 @@ def push_configs(args, ip, passphrase, endpoint, config):
         return {'ip': ip, 'response': 'No response'}
         
 async def upgrade_card(args):
-    interface = ipaddress.ip_interface(args.network)
+    if args.ip_file:
+        ip_file = open(args.ip_file, 'r')
+        ip_addresses = [line.strip() for line in ip_file]
+    else:
+        interface = ipaddress.ip_interface(args.network)
+        ip_addresses = interface.network
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=250) as executor:
         loop = asyncio.get_running_loop()
@@ -370,7 +383,7 @@ async def upgrade_card(args):
                 ip,
                 args
                 ) 
-            for ip in interface.network
+            for ip in ip_addresses
         ]
         results = await asyncio.gather(*coroutes)
         
@@ -419,7 +432,12 @@ def push_upgrades(ip, args):
         return {'ip': ip, 'response': 'No response'}
         
 async def sanitize_cards(args):
-    interface = ipaddress.ip_interface(args.network)
+    if args.ip_file:
+        ip_file = open(args.ip_file, 'r')
+        ip_addresses = [line.strip() for line in ip_file]
+    else:
+        interface = ipaddress.ip_interface(args.network)
+        ip_addresses = interface.network
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=250) as executor:
         loop = asyncio.get_running_loop()
@@ -430,7 +448,7 @@ async def sanitize_cards(args):
                 ip,
                 args
                 ) 
-            for ip in interface.network
+            for ip in ip_addresses
         ]
         results = await asyncio.gather(*coroutes)
         
@@ -476,7 +494,12 @@ def push_sanitization(ip, args):
 
         
 async def commission_cards(args):
-    interface = ipaddress.ip_interface(args.network)
+    if args.ip_file:
+        ip_file = open(args.ip_file, 'r')
+        ip_addresses = [line.strip() for line in ip_file]
+    else:
+        interface = ipaddress.ip_interface(args.network)
+        ip_addresses = interface.network
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=250) as executor:
         loop = asyncio.get_running_loop()
@@ -487,7 +510,7 @@ async def commission_cards(args):
                 ip,
                 args
                 ) 
-            for ip in interface.network
+            for ip in ip_addresses
         ]
         results = await asyncio.gather(*coroutes)
         
