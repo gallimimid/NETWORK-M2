@@ -167,7 +167,7 @@ async def export_configs(args):
                         # add M2 context to each row
                         fdf['IpAddress'] = config['ip']
                         fdf['passphrase'] = json_config.get('passphrase')
-                        fdf[f'features.{feature}.data.version'] =version
+                        fdf[f'features.{feature}.data.version'] = version
                         if workbooks.get(firmware) is not None:
                             if workbooks[firmware].get(fc) is not None:
                                 workbooks[firmware][fc] = workbooks[firmware][fc].append(fdf, sort=False)
@@ -228,7 +228,7 @@ async def import_configs(args):
         if _feature_name in args.features or args.features[0] == '*':
             fdf = imported_file.parse(feature_name)
             # Translate column names here
-            # fdf = fdf.rename(columns=template[firmware][_feature_name]['columns'])
+            fdf = fdf.rename(columns=template[firmware][_feature_path]['columns'])
             fdfs[_feature_path] = fdf
             
         
@@ -279,6 +279,16 @@ async def import_configs(args):
                                     _configs[key] = str(value)
                                 elif key == 'enabled':
                                     _configs[key] = bool(value)
+                                elif key == 'attachEventsLog':
+                                    _configs[key] = bool(value)
+                                elif key == 'attachMeasuresLog':
+                                    _configs[key] = bool(value)
+                                elif key == 'subscribe':
+                                    _configs[key] = bool(value)
+                                elif key == 'periodicity':
+                                    _configs[key] = int(value)
+                                elif key == 'startTime':
+                                    _configs[key] = int(value)
                                 elif key == 'plaintext':
                                     if value == "":
                                         _configs[key] = None
@@ -296,7 +306,16 @@ async def import_configs(args):
                         _configs = _configs[-1]
                         if key not in _configs:
                             if i == i_last:
-                                _configs[key] = value
+                                if key == 'enabled':
+                                    _configs[key] = bool(value)
+                                elif key == 'attachEventsLog':
+                                    _configs[key] = bool(value)
+                                elif key == 'attachMeasuresLog':
+                                    _configs[key] = bool(value)
+                                elif key == 'subscribe':
+                                    _configs[key] = bool(value)
+                                else:
+                                    _configs[key] = value
                             else:
                                 _configs[key] = {}
                         # step one level deeper
@@ -322,7 +341,7 @@ async def import_configs(args):
     for result in results:
         if result['response'] != 'No response':
             if result['response'].status_code != 200:
-                print(result['response'])
+                print(result["ip"], result['response'])
         else:
             print(f'No response from {result["ip"]}')
 
@@ -335,7 +354,7 @@ def push_configs(args, ip, passphrase, endpoint, config):
             config['passphrase'] = passphrase
             config['version'] = '1.0'
             config = {'exclude':[], 'passphrase': args.passphrase, 'data': config}
-        with open('M2_config.json', 'w') as json_file:  
+        with open(str(ip)+'_M2_config.json', 'w') as json_file:  
             json.dump(config, json_file, sort_keys=True, indent=4)
                 
         # Authenticate
@@ -360,7 +379,7 @@ def push_configs(args, ip, passphrase, endpoint, config):
                                         verify=False, 
                                         timeout=10)
         
-        print(config_response)
+        print(ip, config_response)
         return {'ip': ip, 'response': config_response} # 
     except requests.exceptions.RequestException as e:
         print(e)
