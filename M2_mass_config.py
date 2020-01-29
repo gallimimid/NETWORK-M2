@@ -75,7 +75,7 @@ def get_configs(ip, args):
         if args.commission:
             url = f'https://{ip}/rest/mbdetnrs/1.0/card/users/password'
             json = {"user":{"username":"admin","current_pwd":"admin","new_pwd":args.password}}
-            response = requests.put(url, verify=False, json=json, timeout=10)
+            response = requests.put(url, verify=False, json=json, timeout=20)
         
             if response.status_code != 200:
                 return None
@@ -83,18 +83,19 @@ def get_configs(ip, args):
         # Authenticate
         url = f'https://{ip}/rest/mbdetnrs/1.0/oauth2/token'
         json = {'username':'admin','password':args.password,'grant_type':'password','scope':'GUIAccess'}
-        response = requests.post(url, verify=False, json=json, timeout=10)
+        response = requests.post(url, verify=False, json=json, timeout=20)
+        print(response)
         if response.status_code != 200:
             return None
         access_token = response.json()['access_token']
         headers = {'Authorization':  'Bearer ' + access_token}
         
         url = f'https://{ip}/rest/mbdetnrs/1.0/managers/1/identification/'
-        id_response = requests.get(url, headers=headers, verify=False, timeout=10)
+        id_response = requests.get(url, headers=headers, verify=False, timeout=20)
 
         url = f'https://{ip}/rest/mbdetnrs/1.0/managers/1/actions/saveSettings'
         json = {"exclude": [], "passphrase": args.passphrase}
-        config_response = requests.post(url, headers=headers, json=json, verify=False, timeout=10)
+        config_response = requests.post(url, headers=headers, json=json, verify=False, timeout=20)
 
         return {'ip': ip, 'id': id_response.text, 'config': config_response.text}
         
@@ -342,6 +343,8 @@ async def import_configs(args):
         if result['response'] != 'No response':
             if result['response'].status_code != 200:
                 print(result["ip"], result['response'])
+            elif result['response'].status_code == 200:
+                print('configurations applied')
         else:
             print(f'No response from {result["ip"]}')
 
@@ -473,11 +476,6 @@ async def sanitize_cards(args):
         
     for result in results:
         print(result['response'])
-        if result['response'] != 'No response':
-            if result['response'].status_code != 200:
-                print(result['response'])
-        else:
-            print(f'No response from {result["ip"]}')
 
         
 def push_sanitization(ip, args):
@@ -490,9 +488,9 @@ def push_sanitization(ip, args):
                      'password':args.password,
                      'grant_type':'password',
                      'scope':'GUIAccess'}
-        response = requests.post(url, verify=False, json=auth_json, timeout=10)
+        response = requests.post(url, verify=False, json=auth_json, timeout=20)
         if response.status_code != 200:
-            return None
+            return {'ip': ip, 'response': 'Problem authenticating'}
         else:
             access_token = response.json()['access_token']
             print(f'Authentication successful for {ip}, token: {access_token}')
@@ -500,13 +498,12 @@ def push_sanitization(ip, args):
         print(f'Sanitizing {ip}')
         
         url = f'https://{ip}/rest/mbdetnrs/1.0/managers/1/actions/sanitize'
-        upgrade_response = requests.post(url, 
+        sanitize_response = requests.post(url, 
                                         headers=headers, 
                                         verify=False, 
                                         timeout=180)
         
-
-        return {'ip': ip, 'response': upgrade_response} # 
+        return {'ip': ip, 'response': sanitize_response} # 
     except requests.exceptions.RequestException as e:
         print(e)
         return {'ip': ip, 'response': 'No response'}
@@ -534,10 +531,13 @@ async def commission_cards(args):
         results = await asyncio.gather(*coroutes)
         
     for result in results:
-        print(result['response'])
         if result['response'] != 'No response':
-            if result['response'].status_code != 200:
-                print(result['response'])
+            if result['response'].status_code == 403:
+                print('card already commissioned')
+            elif result['response'].status_code == 200:
+                print('card successfully commissioned')
+            else:
+                print('unknown error while commissioning')                
         else:
             print(f'No response from {result["ip"]}')
 
@@ -561,10 +561,60 @@ def push_commissioning(ip, args):
         return {'ip': ip, 'response': 'No response'}
 
         
+async def run(network='169.254.0.1/32',
+              ip_file=None,
+              user='admin',
+              password='admin',
+              passphrase='password',
+              import_path=None,
+              export_path=None,
+              commission=None,
+              sanitize=None,
+              upgrade_path=None,
+              features=['*']):
+
+    args = GetArgs()
+    
+    args.network = network
+    args.ip_file = ip_file
+    args.user = user
+    args.password = password
+    args.passphrase = passphrase
+    args.import_path = import_path
+    args.export_path = export_path
+    args.commission = commission
+    args.sanitize = sanitize
+    args.upgrade_path = upgrade_path
+    args.features = features
+    
+    if args.upgrade_path:
+        print("Upgrading cards...")
+        await upgrade_card(args)
+
+    elif args.export_path is not None:
+        print("Exporting configurations.")
+        await export_configs(args)
+        
+    elif args.import_path is not None:
+        print("Importing configurations.")
+        await import_configs(args)
+
+    elif args.commission:
+        print("Commissioning network cards")
+        await commission_cards(args)
+
+    elif args.sanitize:
+        print("Sanitizing network cards")
+        await sanitize_cards(args)
+
+    else:
+        print("No arguments specified. Default behavior is to export configurations.")
+        await export_configs(args)
+
+
 async def main():
 
     args = GetArgs()
-    print(args)
     
     if args.upgrade_path:
         print("Upgrading cards...")
