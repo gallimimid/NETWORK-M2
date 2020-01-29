@@ -82,13 +82,13 @@ if identification['firmwareVersion'] != firmware_version:
             network=f'{ip_address}/32',
             password = admin_password,
             upgrade_path = 'Eaton_Network_M2_1.7.5.tar'))
-    print('firmware updating...card rebooting...')
+    logging.info('firmware updating...card rebooting...')
     timer = 0
     while timer < 300:
         print(f'{timer}', end="\r")
         time.sleep(1)
 else:
-    print('firmware up to date')
+    logging.info('firmware up to date')
     
 # apply configurations
 asyncio.run(
@@ -96,7 +96,7 @@ asyncio.run(
     password = admin_password,
     import_path = f'{identification["serialNumber"]}_{firmware_version}.xlsx'))
 
-print('card rebooting...please wait')
+logging.info('card rebooting...please wait')
 timer = 0
 while timer < 240:
     print(f'{timer}', end="\r")
@@ -118,9 +118,9 @@ headers = {'Authorization':  'Bearer ' + access_token}
 url = f'https://{ip_address}/rest/mbdetnrs/1.0/sensors/actions/scanDiscover'
 response = requests.post(url, headers=headers, verify=False, timeout=60)
 if response.status_code == 200:
-    print('discovering sensors')
+    logging.info('discovering sensors')
 else:
-    print('failed to initiate discovery process')
+    logging.error('failed to initiate discovery process')
 
 no_sensors = True
 discovered_one = False
@@ -136,9 +136,9 @@ while no_sensors == True:
     url = f'https://{ip_address}/rest/mbdetnrs/1.0/sensors/devices?$expand=2'
     response = requests.get(url, headers=headers, verify=False, timeout=60)
     if response.status_code == 200:
-        print('checking discovered sensors')
+        logging.info('checking discovered sensors')
     else:
-        print('failed to check discovered sensors')
+        logging.error('failed to check discovered sensors')
     # check if any sensors were discovered
     if response.json():
         if response.json()['members@count'] == 2:
@@ -148,10 +148,10 @@ while no_sensors == True:
         elif response.json()['members@count'] == 1 and not discovered_one:
             discovered_one = True
         elif discovered_one:
-            print('only discovered one sensor')
+            logging.error('only discovered one sensor')
             M2_mass_config.end_program()
 
-print('configuring sensor thresholds')
+logging.info('configuring sensor thresholds')
 
 for device in devices:
     for attribute, thresholds in sensor_data.items():
@@ -159,12 +159,12 @@ for device in devices:
         endpoints = device['channels'][attribute]['members']
         for endpoint in endpoints:
             url = f'https://{ip_address}{endpoint["@id"]}'
-            print(f'setting {attribute} thresholds')
+            logging.info(f'setting {attribute} thresholds')
             response = requests.put(url, headers=headers, json=thresholds, verify=False, timeout=60)
             if response.status_code == 200:
-                print(f'{attribute} thresholds successfully applied')
+                logging.info(f'{attribute} thresholds successfully applied')
             else:
-                print(f'failed to apply {attribute} thresholds')
+                logging.error(f'failed to apply {attribute} thresholds')
 
 
-print('completed')
+logging.info('completed')
